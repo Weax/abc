@@ -1,58 +1,91 @@
 import React, { useState } from 'react';
 import './App.scss';
 
+/* 
+  CSV parser using CSV specification:
+  https://tools.ietf.org/html/rfc4180  
+*/
+
 function App() {
   const [table, setTable] = useState([]);
   const [header, setHeader] = useState([]);
 
-  const _delimiter = ',';
-  const _newline = '\n';
-  const _quoteChar = '"';
-  //const _insideQuote = _quoteChar + _quoteChar;
+  const _delimiter = ','; // RFC 4180 #2.4
+  const _newline = '\n'; // CRLF \r\n (RFC 4180 #2.1) may not work on Windows, use only LF
+  const _quoteChar = '"'; // RFC 4180 #2.5
+  const _insideQuote = _quoteChar + _quoteChar; // RFC 4180 #2.7
 
+  const splitter = (string, splitChar) => {
+    let insideQuote = false,
+      array = [],
+      charStack = [];
+
+    const chars = string.split('');
+    for (let i = 0; i < chars.length; i++) {
+      const char = chars[i];
+      const prevChar = chars[i - 1];
+      const nextChar = chars[i + 1];
+
+      if (char === _quoteChar && nextChar !== _quoteChar && prevChar !== _quoteChar) { // RFC 4180 #2.5, #2.6, #2.7
+        insideQuote = !insideQuote;
+      }
+      if (char === splitChar && !insideQuote) {
+        array.push(charStack.join(''));
+        charStack = [];
+      } else {
+        charStack.push(char);
+      }
+
+    }
+
+    array.push(charStack.join(''));
+    return array;
+  }
+
+  const formatCols = (cols) => {
+    return cols.map(col => {
+      col = col.replace( new RegExp(`^\\s*${_quoteChar}|${_quoteChar}\\s*$`, 'g'), ''); // remove spaces from start and end if col is in quotes    
+      col = col.replace( new RegExp(`^${_quoteChar}(.*)${_quoteChar}$`), '$1'); // remove " from start and end
+      col = col.replace( new RegExp(_insideQuote, 'g'), _quoteChar); // replace "" by " RFC 4180 #2.7
+      return col;
+    });
+  }
 
   const parseRow = (row) => {
+    const cols = splitter(row, _delimiter);
+    return formatCols(cols);
+  }
 
-    let insideQuote = false,
-      entries = [],
-      entry = [];
-
-    row.split('').forEach(function (character) {
-      if (character === _quoteChar) {
-        insideQuote = !insideQuote;
-      } else {
-        if (character === _delimiter && !insideQuote) {
-          entries.push(entry.join(''));
-          entry = [];
-        } else {
-          entry.push(character);
-        }
-      }
-    });
-    entries.push(entry.join(''));
-    return entries;
+  const splitToRows = (csv) => {
+    return splitter(csv, _newline);
   }
 
   const parse = (csv) => {
-    let rows = csv.split(_newline);
+    const rows = splitToRows(csv);
     return rows.filter(r => r.length).map(parseRow);
   }
 
-  const handleParseBtn = () => {
+  const resetOutput = () => {
     setHeader([]);
     setTable([]);
+  }
+
+  const setOutput = (table, withHeader) => {
+    if (withHeader) {
+      const header = table.shift(); //paprastumo delei mutuojam table
+      setHeader(header);
+    }
+    setTable(table);
+  }
+
+  const handleParseBtn = () => {
+    resetOutput();
 
     const csv = document.getElementById('input').value;
     const withHeader = document.getElementById('header').checked;
 
     const table = parse(csv);
-
-    if (withHeader) {
-      const header = table.shift(); //we can mutate table here
-      setHeader(header);
-    }
-    setTable(table);
-
+    setOutput(table, withHeader);
   }
 
   return (
