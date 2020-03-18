@@ -52,8 +52,7 @@ function App() {
   }
 
   const parseRow = (row) => {
-    const cols = splitter(row, _delimiter);
-    return formatCols(cols);
+    return splitter(row, _delimiter);
   }
 
   const splitToRows = (csv) => {
@@ -62,7 +61,7 @@ function App() {
 
   const parse = (csv) => {
     const rows = splitToRows(csv);
-    return rows.filter(r => r.length).map(parseRow);
+    return rows.filter(r => r.length).map(row => formatCols(parseRow(row)));
   }
 
   const resetOutput = () => {
@@ -72,7 +71,7 @@ function App() {
 
   const setOutput = (table, withHeader) => {
     if (withHeader) {
-      const header = table.shift(); //paprastumo delei mutuojam table
+      const header = table.shift(); //mutate table only for simplicity
       setHeader(header);
     }
     setTable(table);
